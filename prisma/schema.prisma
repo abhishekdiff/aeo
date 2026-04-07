@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  name            String
+  targetCompany   String
+  targetDomain    String
+  selectedEngines String        @default("[]") // JSON string array
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  competitors     Competitor[]
+  queries         Query[]
+  runs            AnalysisRun[]
+}
+
+model Competitor {
+  id        String  @id @default(cuid())
+  projectId String
+  company   String
+  domain    String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Query {
+  id           String        @id @default(cuid())
+  projectId    String
+  text         String
+  cluster      String        @default("best_tools")
+  intent       String        @default("informational")
+  weight       Float         @default(1.0)
+  createdAt    DateTime      @default(now())
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  answers      Answer[]
+  queryResults QueryResult[]
+}
+
+model AnalysisRun {
+  id           String        @id @default(cuid())
+  projectId    String
+  mode         String        @default("mock") // mock | real
+  status       String        @default("pending") // pending|running|completed|failed
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  answers      Answer[]
+  queryResults QueryResult[]
+  recommendations Recommendation[]
+}
+
+model Answer {
+  id                String    @id @default(cuid())
+  runId             String
+  queryId           String
+  engine            String    // openai | claude | gemini
+  rawText           String    @default("")
+  normalizedSummary String    @default("")
+  winnerCompany     String    @default("")
+  createdAt         DateTime  @default(now())
+  run               AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  query             Query       @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  citations         Citation[]
+}
+
+model Citation {
+  id           String  @id @default(cuid())
+  answerId     String
+  company      String
+  domain       String
+  url          String  @default("")
+  position     Int     @default(1)
+  isFirstMention Boolean @default(false)
+  answer       Answer  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+}
+
+model QueryResult {
+  id                    String      @id @default(cuid())
+  runId                 String
+  queryId               String
+  targetPresent         Boolean     @default(false)
+  targetFirstMention    Boolean     @default(false)
+  targetAvgPosition     Float       @default(0)
+  winnerCompany         String      @default("")
+  lossReasonsJson       String      @default("[]") // JSON string
+  recommendedActionsJson String     @default("[]") // JSON string
+  cluster               String      @default("")
+  run                   AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  query                 Query       @relation(fields: [queryId], references: [id], onDelete: Cascade)
+}
+
+model Recommendation {
+  id              String      @id @default(cuid())
+  runId           String
+  title           String
+  priority        Int         @default(1)
+  type            String      @default("create") // create | improve
+  pageType        String      @default("comparison")
+  suggestedFormat String      @default("")
+  rationale       String      @default("")
+  outlineJson     String      @default("[]") // JSON string
+  run             AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
